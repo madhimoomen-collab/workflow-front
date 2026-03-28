@@ -1,7 +1,8 @@
 import { Component, signal, computed } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../core/auth/auth.service';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-sidebar',
@@ -10,192 +11,522 @@ import { AuthService } from '../../core/auth/auth.service';
   styles: [`
     :host { display: block; }
 
+    /* ─── CYBER THEME VARIABLES ──────────────────────────────────────────── */
+    :host {
+      --cyber-bg: #0a0a0f;
+      --cyber-panel: #0d0d14;
+      --neon-cyan: #00f5ff;
+      --neon-magenta: #ff00ff;
+      --neon-purple: #bf00ff;
+      --neon-pink: #ff2a6d;
+      --border-color: rgba(0, 245, 255, .15);
+      --text: #e0f7ff;
+      --text-muted: #5a8a99;
+      --danger: #ff4757;
+      --radius: 4px;
+    }
+
+    /* ─── SIDEBAR SHELL ──────────────────────────────────────────────────── */
     .sidebar {
       width: 240px;
       min-width: 240px;
       height: 100vh;
-      background: #1a1f36;
+      background: var(--cyber-bg);
       display: flex;
       flex-direction: column;
-      border-right: 1px solid #252b45;
       position: relative;
-      z-index: 10;
+      overflow: hidden;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      border-right: 1px solid var(--border-color);
     }
 
-    .sidebar-logo {
+    /* ─── SCANLINES OVERLAY ──────────────────────────────────────────────── */
+    .sidebar::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 2px,
+        rgba(0, 0, 0, .15) 2px,
+        rgba(0, 0, 0, .15) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* ─── GLOWING EDGE LINE ──────────────────────────────────────────────── */
+    .edge-glow {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 1px;
+      height: 100%;
+      background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        var(--neon-cyan) 20%,
+        var(--neon-magenta) 50%,
+        var(--neon-cyan) 80%,
+        transparent 100%
+      );
+      box-shadow:
+        0 0 10px var(--neon-cyan),
+        0 0 20px var(--neon-cyan);
+      animation: edge-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes edge-pulse {
+      0%, 100% { opacity: .6; }
+      50% { opacity: 1; }
+    }
+
+    /* ─── LOGO AREA ──────────────────────────────────────────────────────── */
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .logo-mark {
+      width: 42px;
+      height: 42px;
+      border: 2px solid var(--neon-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      box-shadow:
+        0 0 10px rgba(0, 245, 255, .3),
+        inset 0 0 10px rgba(0, 245, 255, .1);
+    }
+
+    .logo-mark i {
+      font-size: 1.1rem;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    /* Corner accents */
+    .logo-mark::before,
+    .logo-mark::after {
+      content: '';
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border: 2px solid var(--neon-magenta);
+    }
+    .logo-mark::before {
+      top: -4px;
+      left: -4px;
+      border-right: none;
+      border-bottom: none;
+    }
+    .logo-mark::after {
+      bottom: -4px;
+      right: -4px;
+      border-left: none;
+      border-top: none;
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .logo-title {
+      font-size: .9rem;
+      font-weight: 700;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .logo-title span {
+      color: var(--neon-magenta);
+      text-shadow: 0 0 10px var(--neon-magenta);
+    }
+
+    .logo-badge {
+      font-size: .6rem;
+      font-weight: 600;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* ─── SECTION LABEL ──────────────────────────────────────────────────── */
+    .section-label {
+      padding: 20px 20px 10px;
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px rgba(0, 245, 255, .5);
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 22px 20px 18px;
-      border-bottom: 1px solid #252b45;
-      text-decoration: none;
     }
-    .logo-icon {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: linear-gradient(135deg, #6366f1, #818cf8);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1rem; flex-shrink: 0;
-      box-shadow: 0 4px 12px rgba(99,102,241,.4);
-    }
-    .logo-text { font-size: 1.05rem; font-weight: 900; color: #f1f2f8; letter-spacing: -.02em; }
-    .logo-text span { color: #818cf8; }
 
-    .nav-section { padding: 20px 12px 6px; flex: 1; }
-    .nav-label {
-      font-size: .58rem; font-weight: 800; letter-spacing: .12em;
-      text-transform: uppercase; color: rgba(255,255,255,.2);
-      padding: 0 8px; margin-bottom: 6px;
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border-color), transparent);
     }
-    .nav-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 
+    /* ─── NAV LIST ────────────────────────────────────────────────────────── */
+    .nav-list {
+      list-style: none;
+      margin: 0;
+      padding: 0 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+    }
+
+    /* ─── NAV ITEM ────────────────────────────────────────────────────────── */
     .nav-link {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px; border-radius: 10px;
-      color: rgba(255,255,255,.45); text-decoration: none;
-      font-size: .875rem; font-weight: 600;
-      transition: all .15s ease; position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: .8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      transition: all .2s ease;
+      position: relative;
     }
-    .nav-link:hover { color: rgba(255,255,255,.85); background: rgba(255,255,255,.07); }
-    .nav-link.active { color: #818cf8; background: rgba(99,102,241,.15); }
+
+    .nav-link:hover {
+      background: rgba(0, 245, 255, .05);
+      border-color: rgba(0, 245, 255, .2);
+      color: var(--text);
+    }
+
+    .nav-link:hover .nav-icon {
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    /* ─── ACTIVE STATE ───────────────────────────────────────────────────── */
+    .nav-link.active {
+      background: rgba(0, 245, 255, .08);
+      border-color: var(--neon-cyan);
+      color: var(--neon-cyan);
+      box-shadow:
+        0 0 15px rgba(0, 245, 255, .2),
+        inset 0 0 15px rgba(0, 245, 255, .05);
+    }
+
+    .nav-link.active .nav-icon {
+      color: var(--neon-cyan);
+      text-shadow: 0 0 15px var(--neon-cyan);
+    }
+
+    /* Active indicator line */
     .nav-link.active::before {
-      content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-      width: 3px; height: 20px; background: #818cf8; border-radius: 0 3px 3px 0;
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 60%;
+      background: var(--neon-cyan);
+      border-radius: 0 2px 2px 0;
+      box-shadow: 0 0 10px var(--neon-cyan);
     }
+
+    /* ─── ICON ───────────────────────────────────────────────────────────── */
     .nav-icon {
-      width: 32px; height: 32px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: .8rem; flex-shrink: 0;
-      transition: all .15s; background: rgba(255,255,255,.05);
-    }
-    .nav-link:hover .nav-icon { background: rgba(255,255,255,.1); }
-    .nav-link.active .nav-icon { background: rgba(99,102,241,.25); color: #818cf8; }
-    .nav-text { flex: 1; }
-
-    /* Spectator badge shown next to Workflows for non-admins */
-    .spectator-badge {
-      font-size: .55rem; font-weight: 800; letter-spacing: .06em;
-      text-transform: uppercase; padding: 2px 6px; border-radius: 4px;
-      background: rgba(245,158,11,.15); color: #f59e0b;
-      border: 1px solid rgba(245,158,11,.25);
+      width: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .9rem;
+      transition: all .2s ease;
     }
 
-    .sidebar-footer { border-top: 1px solid #252b45; padding: 14px 12px; }
+    .nav-label {
+      flex: 1;
+    }
+
+    /* ─── FOOTER AREA ────────────────────────────────────────────────────── */
+    .footer-area {
+      padding: 16px 12px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ─── USER CARD ──────────────────────────────────────────────────────── */
     .user-card {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px; border-radius: 10px;
-      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07);
-      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      background: rgba(0, 245, 255, .03);
+      cursor: pointer;
+      transition: all .2s ease;
     }
-    .user-avatar {
-      width: 34px; height: 34px; border-radius: 9px;
-      background: linear-gradient(135deg, #6366f1, #818cf8);
-      display: flex; align-items: center; justify-content: center;
-      font-size: .72rem; font-weight: 800; color: #fff; flex-shrink: 0;
-    }
-    .user-info { flex: 1; min-width: 0; }
-    .user-name {
-      font-size: .82rem; font-weight: 700; color: rgba(255,255,255,.85);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .user-role {
-      font-size: .68rem; color: rgba(255,255,255,.3); font-weight: 600;
-      text-transform: uppercase; letter-spacing: .05em; margin-top: 1px;
-    }
-    /* Role pill colour */
-    .role-admin   { color: #818cf8 !important; }
-    .role-other   { color: #f59e0b !important; }
 
-    .logout-btn {
-      display: flex; align-items: center; gap: 8px;
-      width: 100%; padding: 9px 12px; border-radius: 9px;
-      background: transparent; border: 1px solid rgba(239,68,68,.2);
-      color: rgba(239,68,68,.6); font: 600 .82rem inherit;
-      cursor: pointer; transition: all .15s;
+    .user-card:hover {
+      border-color: rgba(0, 245, 255, .3);
+      background: rgba(0, 245, 255, .06);
+      box-shadow: 0 0 15px rgba(0, 245, 255, .1);
     }
-    .logout-btn:hover { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.45); color: #ef4444; }
-    .logout-btn i { font-size: .8rem; }
-    .version-tag {
-      text-align: center; font-size: .6rem; color: rgba(255,255,255,.12);
-      font-weight: 600; letter-spacing: .08em; padding-top: 8px;
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border: 2px solid var(--neon-magenta);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--neon-magenta);
+      flex-shrink: 0;
+      box-shadow: 0 0 10px rgba(255, 0, 255, .3);
+    }
+
+    .user-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-name {
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+
+    .user-role-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .role-dot {
+      width: 6px;
+      height: 6px;
+      background: #00ff88;
+      box-shadow: 0 0 8px #00ff88;
+      flex-shrink: 0;
+    }
+
+    .user-role {
+      font-size: .65rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .user-arrow {
+      color: var(--text-muted);
+      font-size: .7rem;
+      transition: all .2s ease;
+    }
+
+    .user-card:hover .user-arrow {
+      color: var(--neon-cyan);
+      transform: translateX(2px);
+    }
+
+    /* ─── LOGOUT BUTTON ──────────────────────────────────────────────────── */
+    .logout-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid rgba(255, 71, 87, .3);
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--danger);
+      font: 600 .75rem 'DM Sans', system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      cursor: pointer;
+      transition: all .2s ease;
+    }
+
+    .logout-btn:hover {
+      background: rgba(255, 71, 87, .1);
+      border-color: var(--danger);
+      box-shadow: 0 0 15px rgba(255, 71, 87, .2);
+      text-shadow: 0 0 10px rgba(255, 71, 87, .5);
+    }
+
+    .logout-btn i {
+      font-size: .8rem;
+    }
+
+    /* ─── VERSION LINE ───────────────────────────────────────────────────── */
+    .version-line {
+      text-align: center;
+      font-size: .6rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding-top: 8px;
+      opacity: 0.5;
+    }
+
+    /* ─── DECORATIVE SHAPES ──────────────────────────────────────────────── */
+    .deco-shapes {
+      position: absolute;
+      bottom: 120px;
+      left: 20px;
+      pointer-events: none;
+      opacity: .15;
+    }
+
+    .deco-shape {
+      position: absolute;
+      border: 1px solid var(--neon-cyan);
+    }
+
+    .deco-shape.d1 {
+      width: 30px;
+      height: 30px;
+      transform: rotate(45deg);
+    }
+
+    .deco-shape.d2 {
+      width: 20px;
+      height: 20px;
+      left: 40px;
+      top: 10px;
+      border-color: var(--neon-magenta);
+      border-radius: 50%;
+    }
+
+    /* ─── GRID PATTERN ───────────────────────────────────────────────────── */
+    .grid-pattern {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+      background-image:
+        linear-gradient(rgba(0, 245, 255, .03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 245, 255, .03) 1px, transparent 1px);
+      background-size: 20px 20px;
+      mask-image: linear-gradient(to top, rgba(0,0,0,.3), transparent);
+      -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,.3), transparent);
+      pointer-events: none;
     }
   `],
   template: `
-    <aside class="sidebar">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-      <!-- Logo -->
-      <a class="sidebar-logo" routerLink="/workflows">
-        <div class="logo-icon">🔷</div>
-        <div class="logo-text">Workflow<span>Studio</span></div>
+<aside class="sidebar">
+  <!-- Glowing Edge -->
+  <div class="edge-glow"></div>
+
+  <!-- Grid Pattern -->
+  <div class="grid-pattern"></div>
+
+  <!-- Decorative Shapes -->
+  <div class="deco-shapes">
+    <div class="deco-shape d1"></div>
+    <div class="deco-shape d2"></div>
+  </div>
+
+  <!-- Logo -->
+  <div class="logo-area">
+    <div class="logo-mark">
+      <i class="pi pi-box"></i>
+    </div>
+    <div class="logo-text">
+      <div class="logo-title">Workflow<span>Studio</span></div>
+      <div class="logo-badge">System v1.0</div>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <div class="section-label">Navigation</div>
+  <ul class="nav-list">
+    <li>
+      <a class="nav-link" routerLink="/workflows" routerLinkActive="active">
+        <div class="nav-icon"><i class="pi pi-sitemap"></i></div>
+        <span class="nav-label">Workflows</span>
       </a>
+    </li>
 
-      <!-- Navigation -->
-      <div class="nav-section">
-        <div class="nav-label">Navigation</div>
-        <ul class="nav-list">
+    <li>
+      <a class="nav-link" routerLink="/instances" routerLinkActive="active">
+        <div class="nav-icon"><i class="pi pi-play-circle"></i></div>
+        <span class="nav-label">Instances</span>
+      </a>
+    </li>
 
-          <!-- Workflows — visible to everyone -->
-          <li>
-            <a class="nav-link" routerLink="/workflows" routerLinkActive="active">
-              <div class="nav-icon"><i class="pi pi-sitemap"></i></div>
-              <span class="nav-text">Workflows</span>
-              @if (!isAdmin()) {
-                <span class="spectator-badge">Lecture</span>
-              }
-            </a>
-          </li>
+    <li>
+      <a class="nav-link" routerLink="/users" routerLinkActive="active">
+        <div class="nav-icon"><i class="pi pi-users"></i></div>
+        <span class="nav-label">Users</span>
+      </a>
+    </li>
+  </ul>
 
-          <!-- Instances — admin only -->
-          @if (isAdmin()) {
-            <li>
-              <a class="nav-link" routerLink="/instances" routerLinkActive="active">
-                <div class="nav-icon"><i class="pi pi-play-circle"></i></div>
-                <span class="nav-text">Instances</span>
-              </a>
-            </li>
-          }
-
-          <!-- Users — visible to everyone (non-admin sees profile/password only) -->
-          <li>
-            <a class="nav-link" routerLink="/users" routerLinkActive="active">
-              <div class="nav-icon"><i class="pi pi-users"></i></div>
-              <span class="nav-text">{{ isAdmin() ? 'Utilisateurs' : 'Mon profil' }}</span>
-            </a>
-          </li>
-
-        </ul>
-      </div>
-
-      <!-- Footer -->
-      <div class="sidebar-footer">
-        @if (currentUser()) {
-          <div class="user-card">
-            <div class="user-avatar">{{ initials(currentUser()?.fullName) }}</div>
-            <div class="user-info">
-              <div class="user-name">{{ currentUser()?.fullName || currentUser()?.username }}</div>
-              <div class="user-role"
-                   [class.role-admin]="isAdmin()"
-                   [class.role-other]="!isAdmin()">
-                {{ currentUser()?.role || 'user' }}
-              </div>
-            </div>
+  <!-- Footer -->
+  <div class="footer-area">
+    @if (currentUser()) {
+      <div class="user-card">
+        <div class="user-avatar">{{ initials(currentUser()?.fullName) }}</div>
+        <div class="user-info">
+          <div class="user-name">{{ currentUser()?.fullName || currentUser()?.username }}</div>
+          <div class="user-role-row">
+            <div class="role-dot"></div>
+            <span class="user-role">{{ currentUser()?.role || 'user' }}</span>
           </div>
-        }
-        <button class="logout-btn" (click)="logout()">
-          <i class="pi pi-sign-out"></i> Déconnexion
-        </button>
-        <div class="version-tag">WorkflowStudio v1.0</div>
+        </div>
+        <i class="pi pi-chevron-right user-arrow"></i>
       </div>
+    }
 
-    </aside>
+    <button class="logout-btn" (click)="logout()">
+      <i class="pi pi-power-off"></i>
+      Disconnect
+    </button>
+
+    <div class="version-line">WorkflowStudio // 2026</div>
+  </div>
+</aside>
   `,
 })
 export class SidebarComponent {
   currentUser = signal<any>(null);
-  isAdmin;
 
   constructor(private auth: AuthService) {
     this.currentUser = this.auth.currentUser;
-    this.isAdmin = this.auth.isAdmin;
   }
 
   initials(name?: string): string {
@@ -203,5 +534,7 @@ export class SidebarComponent {
     return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   }
 
-  logout() { this.auth.logout(); }
+  logout() {
+    this.auth.logout();
+  }
 }
